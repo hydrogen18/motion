@@ -699,121 +699,6 @@ Error:
 }
 
 /**
- * http_bindsock
- *      Sets up a TCP/IP socket for incoming requests. It is called only during
- *      initialisation of Motion from the function stream_init
- *      The function sets up a a socket on the port number given by _port_.
- *      If the parameter _local_ is not zero the socket is setup to only accept connects from localhost.
- *      Otherwise any client IP address is accepted. The function returns an integer representing the socket.
- *
- * Returns: socket descriptor or -1 if any error happens
- */
-int http_bindsock(int port, int local, int ipv6_enabled)
-{
-    int sl = -1, optval;
-    struct addrinfo hints, *res = NULL, *ressave = NULL;
-    char portnumber[10], hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
-
-    snprintf(portnumber, sizeof(portnumber), "%u", port);
-    memset(&hints, 0, sizeof(struct addrinfo));
-
-    /* Use the AI_PASSIVE flag, which indicates we are using this address for a listen() */
-    hints.ai_flags = AI_PASSIVE;
-#if defined(BSD)
-    hints.ai_family = AF_INET;
-#else
-    if (!ipv6_enabled)
-        hints.ai_family = AF_INET;
-    else
-        hints.ai_family = AF_UNSPEC;
-#endif
-    hints.ai_socktype = SOCK_STREAM;
-
-    optval = getaddrinfo(local ? "localhost" : NULL, portnumber, &hints, &res);
-
-    if (optval != 0) {
-        MOTION_LOG(CRT, TYPE_STREAM, SHOW_ERRNO, "%s: getaddrinfo() for motion-stream socket failed: %s",
-                   gai_strerror(optval));
-
-        if (res != NULL)
-            freeaddrinfo(res);
-        return -1;
-    }
-
-    ressave = res;
-
-    while (res) {
-        /* Create socket */
-        sl = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-
-        getnameinfo(res->ai_addr, res->ai_addrlen, hbuf,
-                    sizeof(hbuf), sbuf, sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV);
-
-        if (sl >= 0) {
-            optval = 1;
-            /* Reuse Address */
-            setsockopt(sl, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
-
-            MOTION_LOG(NTC, TYPE_STREAM, NO_ERRNO, "%s: motion-stream testing : %s addr: %s port: %s",
-                       res->ai_family == AF_INET ? "IPV4":"IPV6", hbuf, sbuf);
-
-            if (bind(sl, res->ai_addr, res->ai_addrlen) == 0) {
-                MOTION_LOG(NTC, TYPE_STREAM, NO_ERRNO, "%s: motion-stream Bound : %s addr: %s port: %s",
-                           res->ai_family == AF_INET ? "IPV4":"IPV6", hbuf, sbuf);
-                break;
-            }
-
-            MOTION_LOG(CRT, TYPE_STREAM, SHOW_ERRNO, "%s: motion-stream bind() failed, retrying");
-            close(sl);
-            sl = -1;
-        }
-        MOTION_LOG(ERR, TYPE_STREAM, SHOW_ERRNO, "%s: motion-stream socket failed, retrying");
-        res = res->ai_next;
-    }
-
-    freeaddrinfo(ressave);
-
-    if (sl < 0) {
-        MOTION_LOG(CRT, TYPE_STREAM, SHOW_ERRNO, "%s: motion-stream creating socket/bind ERROR");
-        return -1;
-    }
-
-
-    if (listen(sl, DEF_MAXWEBQUEUE) == -1) {
-        MOTION_LOG(CRT, TYPE_STREAM, SHOW_ERRNO, "%s: motion-stream listen() ERROR");
-        close(sl);
-        sl = -1;
-    }
-
-    return sl;
-}
-
-/**
- * http_acceptsock
- *
- *
- * Returns: socket descriptor or -1 if any error happens.
- */
-static int http_acceptsock(int sl)
-{
-    int sc;
-    unsigned long i;
-    struct sockaddr_storage sin;
-    socklen_t addrlen = sizeof(sin);
-
-    if ((sc = accept(sl, (struct sockaddr *)&sin, &addrlen)) >= 0) {
-        i = 1;
-        ioctl(sc, FIONBIO, &i);
-        return sc;
-    }
-
-    MOTION_LOG(CRT, TYPE_STREAM, SHOW_ERRNO, "%s: motion-stream accept()");
-
-    return -1;
-}
-
-
-/**
  * stream_flush
  *      Sends any outstanding data to all connected clients.
  *      It continuously goes through the client list until no data is able
@@ -1031,19 +916,12 @@ static int stream_check_write(struct stream *list)
 
 /**
  * stream_init
- *      This function is called from motion.c for each motion thread starting up.
- *      The function setup the incoming tcp socket that the clients connect to.
- *      The function returns an integer representing the socket.
+ *      This function is called from motion.c for each motion thread starting up. 
  *
- * Returns: stream socket descriptor.
  */
 int stream_init(struct context *cnt)
 {
-    cnt->stream.socket = http_bindsock(cnt->conf.stream_port, cnt->conf.stream_localhost,
-                                       cnt->conf.ipv6_enabled);
-    cnt->stream.next = NULL;
-    cnt->stream.prev = NULL;
-    return cnt->stream.socket;
+    return 0;
 }
 
 /**
@@ -1053,30 +931,7 @@ int stream_init(struct context *cnt)
  */
 void stream_stop(struct context *cnt)
 {
-    struct stream *list;
-    struct stream *next = cnt->stream.next;
-
-    MOTION_LOG(NTC, TYPE_STREAM, NO_ERRNO, "%s: Closing motion-stream listen socket"
-               " & active motion-stream sockets");
-
-    close(cnt->stream.socket);
-    cnt->stream.socket = -1;
-
-    while (next) {
-        list = next;
-        next = list->next;
-
-        if (list->tmpbuffer) {
-            free(list->tmpbuffer->ptr);
-            free(list->tmpbuffer);
-        }
-
-        close(list->socket);
-        free(list);
-    }
-
-    MOTION_LOG(NTC, TYPE_STREAM, NO_ERRNO, "%s: Closed motion-stream listen socket"
-               " & active motion-stream sockets");
+    
 }
 
 /*
@@ -1097,80 +952,55 @@ void stream_stop(struct context *cnt)
  */
 void stream_put(struct context *cnt, unsigned char *image)
 {
-    struct timeval timeout;
     struct stream_buffer *tmpbuffer;
-    fd_set fdread;
-    int sl = cnt->stream.socket;
     int sc;
     int err;
     int i ;
-    /* Tthe following string has an extra 16 chars at end for length. */
-    const char jpeghead[] = "--BoundaryString\r\n"
+    /* The following string has an extra 16 chars at end for length. */
+    static const char jpeghead[] = "--BoundaryString\r\n"
                             "Content-type: image/jpeg\r\n"
                             "Content-Length:                ";
-    int headlength = sizeof(jpeghead) - 1;    /* Don't include terminator. */
+    static int headlength = sizeof(jpeghead) - 1;    /* Don't include terminator. */
     char len[20];    /* Will be used for sprintf, must be >= 16 */
 
-    /*
-     * Timeout struct used to timeout the time we wait for a client
-     * and we do not wait at all.
-     */
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 0;
-    FD_ZERO(&fdread);
-    FD_SET(cnt->stream.socket, &fdread);
 
-    /*
-     * If we have not reached the max number of allowed clients per
-     * thread we will check to see if new clients are waiting to connect.
-     * If this is the case we add the client as a new stream struct and
-     * add this to the end of the chain of stream structs that are linked
-     * to each other.
-     */
-    if ((cnt->stream_count < DEF_MAXSTREAMS) &&
-        (select(sl + 1, &fdread, NULL, NULL, &timeout) > 0)) {
-        sc = http_acceptsock(sl);
-        if (cnt->conf.stream_auth_method == 0) {
-            stream_add_client(&cnt->stream, sc);
-            cnt->stream_count++;
-        } else  {
-            do_client_auth(cnt, sc);
-        }
-    }
-    
-    if (cnt->stream_count < DEF_MAXSTREAMS) {
-        MOTION_LOG(DBG,TYPE_STREAM,NO_ERRNO,"%s: checking for new streams from webhttpd");
-        err = pthread_mutex_lock(&(cnt->new_streams_mutex));
-        if(err != 0)
+
+    MOTION_LOG(DBG,TYPE_STREAM,NO_ERRNO,"%s: checking for new streams from webhttpd");
+    err = pthread_mutex_lock(&(cnt->new_streams_mutex));
+    if(err != 0)
+    {
+        MOTION_LOG(CRT,TYPE_ALL,SHOW_ERRNO,"%s: failure pthread_mutex_lock");
+    } 
+    else
+    {
+        for(i=0; i != NEW_STREAMS_LENGTH; ++i )
         {
-            MOTION_LOG(CRT,TYPE_ALL,SHOW_ERRNO,"%s: failure pthread_mutex_lock");
-        } 
-        else
-        {
-            for(i=0; i != NEW_STREAMS_LENGTH; ++i )
-            {
-                if(cnt->new_streams[i] != -1 ){
-                    sc = cnt->new_streams[i];
+            if(cnt->new_streams[i] != -1 ){
+                sc = cnt->new_streams[i];
+                /*
+                 * If we have not reached the max number of allowed clients per
+                 * thread we will check to see if new clients are waiting to connect.
+                 * If this is the case we add the client as a new stream struct and
+                 * add this to the end of the chain of stream structs that are linked
+                 * to each other.
+                 */
+                if (cnt->stream_count < DEF_MAXSTREAMS){
                     MOTION_LOG(DBG,TYPE_STREAM,NO_ERRNO,"%s: picked up new stream from webhttpd");
-                    
                     stream_add_client(&cnt->stream, sc);
                     cnt->stream_count++;
-                    
-                } 
-                cnt->new_streams[i] = -1;
-            }
-            err = pthread_mutex_unlock(&(cnt->new_streams_mutex));
- 
-            if (err != 0){
-                MOTION_LOG(CRT,TYPE_ALL,SHOW_ERRNO,"%s: failure pthread_mutex_unlock");
-            }
+                } else {
+                    //TODO respond with too busy
+                    close(sc);
+                }
+            } 
+            cnt->new_streams[i] = -1;
+        }
+        err = pthread_mutex_unlock(&(cnt->new_streams_mutex));
+
+        if (err != 0){
+            MOTION_LOG(CRT,TYPE_ALL,SHOW_ERRNO,"%s: failure pthread_mutex_unlock");
         }
     }
-
-    /* Lock the mutex */
-    if (cnt->conf.stream_auth_method != 0)
-        pthread_mutex_lock(&stream_auth_mutex);
-
 
     /* Call flush to send any previous partial-sends which are waiting. */
     stream_flush(&cnt->stream, &cnt->stream_count, cnt->conf.stream_limit);
@@ -1240,10 +1070,6 @@ void stream_put(struct context *cnt, unsigned char *image)
      * ready for the new frame) the new data will be written out.
      */
     stream_flush(&cnt->stream, &cnt->stream_count, cnt->conf.stream_limit);
-
-    /* Unlock the mutex */
-    if (cnt->conf.stream_auth_method != 0)
-        pthread_mutex_unlock(&stream_auth_mutex);
 
     return;
 }

@@ -2084,16 +2084,16 @@ static unsigned int handle_get(int client_socket, const char *url, void *userdat
                                     MOTION_LOG(CRT,TYPE_ALL,SHOW_ERRNO,"%s: failure pthread_mutex_unlock");
                                 }
                                 
-                                if (found == 0 )
+                                if (found == 0)
                                 { 
                                     //TODO respond to client with too busy
                                     
-                                    return 1;
+                                    return 1; //Caller closes socket
                                 } else {
                                     MOTION_LOG(INF,TYPE_STREAM,NO_ERRNO,"%s: stream started for thread %d",thread);
                                 }
                                 
-                                return 2;
+                                return 2; //Caller does not close socket
                                 
                             }
                         }

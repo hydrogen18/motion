@@ -247,16 +247,15 @@ static void event_stop_stream(struct context *cnt, int type ATTRIBUTE_UNUSED,
             char *dummy2 ATTRIBUTE_UNUSED, void *dummy3 ATTRIBUTE_UNUSED,
             struct tm *tm ATTRIBUTE_UNUSED)
 {
-    if ((cnt->conf.stream_port) && (cnt->stream.socket != -1))
-        stream_stop(cnt);
+    
+    stream_stop(cnt);
 }
 
 static void event_stream_put(struct context *cnt, int type ATTRIBUTE_UNUSED,
             unsigned char *img, char *dummy1 ATTRIBUTE_UNUSED,
             void *dummy2 ATTRIBUTE_UNUSED, struct tm *tm ATTRIBUTE_UNUSED)
 {
-    if (cnt->conf.stream_port)
-        stream_put(cnt, img);
+    stream_put(cnt, img);
 }
 
 #ifdef HAVE_SDL

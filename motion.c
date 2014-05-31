@@ -955,17 +955,9 @@ static int motion_init(struct context *cnt)
     /* Set threshold value */
     cnt->threshold = cnt->conf.max_changes;
 
-    /* Initialize stream server if stream port is specified to not 0 */
-    if (cnt->conf.stream_port) {
-        if (stream_init(cnt) == -1) {
-            MOTION_LOG(ERR, TYPE_ALL, SHOW_ERRNO, "%s: Problem enabling motion-stream server in port %d", 
-                       cnt->conf.stream_port);
-            cnt->finish = 1;
-        } else {  
-            MOTION_LOG(NTC, TYPE_ALL, NO_ERRNO, "%s: Started motion-stream server in port %d auth %s", 
-                       cnt->conf.stream_port, cnt->conf.stream_auth_method ? "Enabled":"Disabled");
-        }    
-    }
+    if (stream_init(cnt) == -1) {
+        cnt->finish = 1;
+    } 
 
     /* Prevent first few frames from triggering motion... */
     cnt->moved = 8;
