@@ -86,12 +86,9 @@ struct config conf_template = {
 #ifdef HAVE_SDL
     sdl_threadnr:                   0,
 #endif
-    ipv6_enabled:                   0,
-    stream_port:                    0,
     stream_quality:                 50,
     stream_motion:                  0,
     stream_maxrate:                 1,
-    stream_localhost:               1,
     stream_limit:                   0,
     stream_auth_method:             0,
     stream_authentication:          NULL,
