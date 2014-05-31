@@ -275,7 +275,7 @@ void context_clone(struct context *src, struct context *dst){
     /* used to store return value durign re-initialization */
     int err ;
     /* make this an exact clone of the context structure */
-    memcpy(src, dst, sizeof(struct context));
+    memcpy(dst, src, sizeof(struct context));
     
     /* reinitialize the mutex so it is not shared */
     err = pthread_mutex_init(&(dst->new_streams_mutex),NULL);
