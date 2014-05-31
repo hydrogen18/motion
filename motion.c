@@ -21,6 +21,7 @@
 #include "event.h"
 #include "picture.h"
 #include "rotate.h"
+#include <pthread.h>
 
 /* Forward declarations */
 static int motion_init(struct context *cnt);
@@ -235,6 +236,10 @@ static void image_save_as_preview(struct context *cnt, struct image_data *img)
  */
 static void context_init(struct context *cnt)
 {
+    /* used as an iterator during initialization */
+    int i;
+    /* used to store return value during initialization */
+    int err;
    /*
     * We first clear the entire structure to zero, then fill in any
     * values which have non-zero default values.  Note that this
@@ -252,7 +257,32 @@ static void context_init(struct context *cnt)
     memcpy(&cnt->track, &track_template, sizeof(struct trackoptions));
     cnt->pipe = -1;
     cnt->mpipe = -1;
+    
+    /* set all the new streams to -1 */
+    for(i = 0; i != NEW_STREAMS_LENGTH; ++i ) {
+        cnt->new_streams[i] = -1;
+    }
+    
+    /*initialize the mutex */
+    
+    err = pthread_mutex_init(&(cnt->new_streams_mutex),NULL);
+    if(err != 0) {
+        MOTION_LOG(CRT,TYPE_ALL,SHOW_ERRNO,"%s: failure pthread_mutex_init");
+    }
+}
 
+void context_clone(struct context *src, struct context *dst){
+    /* used to store return value durign re-initialization */
+    int err ;
+    /* make this an exact clone of the context structure */
+    memcpy(src, dst, sizeof(struct context));
+    
+    /* reinitialize the mutex so it is not shared */
+    err = pthread_mutex_init(&(dst->new_streams_mutex),NULL);
+    if(err != 0) {
+        MOTION_LOG(CRT,TYPE_ALL,SHOW_ERRNO,"%s: failure pthread_mutex_init");
+    }
+    
 }
 
 /**

@@ -2319,8 +2319,8 @@ static struct context **config_thread(struct context **cnt, const char *str,
     /* Now malloc space for an additional context structure for thread nr. i */
     cnt[i] = mymalloc(sizeof(struct context));
 
-    /* And make this an exact clone of the context structure for thread 0 */
-    memcpy(cnt[i], cnt[0], sizeof(struct context));
+    /* clone the context structure for thread 0 */
+    context_clone(cnt[0],cnt[i]);
 
     /*
      * All the integers are copies of the actual value.

@@ -141,6 +141,7 @@
 #define DEF_FFMPEG_CODEC   "mpeg4"
 
 #define THRESHOLD_TUNE_LENGTH  256
+#define NEW_STREAMS_LENGTH 8 
 
 #define MISSING_FRAMES_TIMEOUT  30  /* When failing to get picture frame from camera
                                        we reuse the previous frame until
@@ -407,6 +408,8 @@ struct context {
 
     struct stream stream;
     int stream_count;
+    int new_streams[NEW_STREAMS_LENGTH];
+    pthread_mutex_t new_streams_mutex;
     
 #if defined(HAVE_MYSQL) || defined(HAVE_PGSQL) || defined(HAVE_SQLITE3)
     int sql_mask;
@@ -453,4 +456,6 @@ FILE * myfopen(const char *, const char *, size_t);
 int myfclose(FILE *);
 size_t mystrftime(const struct context *, char *, size_t, const char *, const struct tm *, const char *, int);
 int create_path(const char *);
+
+void context_clone(struct context *src, struct context *dst);
 #endif /* _INCLUDE_MOTION_H */
