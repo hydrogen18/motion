@@ -988,28 +988,6 @@ config_param config_params[] = {
     },
 #endif /* HAVE_FFMPEG */
     {
-    "ipv6_enabled",
-    "\n############################################################\n"
-    "# Global Network Options\n"
-    "############################################################\n\n"
-    "# Enable or disable IPV6 for http control and stream (default: off)",
-    0,
-    CONF_OFFSET(ipv6_enabled),
-    copy_bool,
-    print_bool
-    },
-    {
-    "stream_port",
-    "\n############################################################\n"
-    "# Live Stream Server\n"
-    "############################################################\n\n"
-    "# The mini-http server listens to this port for requests (default: 0 = disabled)",
-    0,
-    CONF_OFFSET(stream_port),
-    copy_int,
-    print_int
-    },
-    {
     "stream_quality",
     "# Quality of the jpeg (in percent) images produced (default: 50)",
     0,
@@ -1033,14 +1011,6 @@ config_param config_params[] = {
     CONF_OFFSET(stream_maxrate),
     copy_int,
     print_int
-    },
-    {
-    "stream_localhost",
-    "# Restrict stream connections to localhost only (default: on)",
-    0,
-    CONF_OFFSET(stream_localhost),
-    copy_bool,
-    print_bool
     },
     {
     "stream_limit",
