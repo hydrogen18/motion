@@ -2225,12 +2225,13 @@ static unsigned int handle_get(int client_socket, const char *url, void *userdat
                                      "<a href='/%hd/action'>action</a><br>\n"
                                      "<a href='/%hd/detection'>detection</a><br>\n"
                                      "<a href='/%hd/track'>track</a><br>\n",
-                                     thread, thread, thread, thread, thread);
+                                     "<a href='/%hd/track'>webcam</a><br>\n",
+                                     thread, thread, thread, thread, thread, thread);
                         send_template(client_socket, res);
                         send_template_end_client(client_socket);
                     } else {
                         send_template_ini_client_raw(client_socket);
-                        sprintf(res, "Thread %hd\nconfig\naction\ndetection\ntrack\n", thread);
+                        sprintf(res, "Thread %hd\nconfig\naction\ndetection\ntrack\nwebcam\n", thread);
                         send_template_raw(client_socket, res);
                     }
                 }
