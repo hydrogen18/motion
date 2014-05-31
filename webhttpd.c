@@ -2038,7 +2038,66 @@ static unsigned int handle_get(int client_socket, const char *url, void *userdat
                                 response_client(client_socket, not_found_response_valid_command_raw, NULL);
                         }
 
-                    } else if (!strcmp(command, "action")) { /* action */
+                    } else if (!strcmp(command,"webcam")) /* webcam */
+                    { 
+                        pointer = pointer + 6;
+                        length_uri = length_uri - 6;
+                        
+                        /* Handover connection to stream */
+                        struct context * thread_cnt = cnt[0];
+                        int i = 0;
+                        for (;i < thread && thread_cnt != NULL; ++i ){
+                            thread_cnt = cnt[i];
+                        }
+                        
+                        //Not found
+                        if (length_uri != 0 || thread_cnt == NULL){
+                            if (cnt[0]->conf.webcontrol_html_output){
+                                response_client(client_socket, not_found_response_valid_command,NULL);
+                            }
+                            else
+                            {
+                                response_client(client_socket, not_found_response_valid_command_raw,NULL);
+                            }
+                            return 1;
+                        } else {
+                            int err;
+                            err = pthread_mutex_lock(&(thread_cnt->new_streams_mutex));
+                            if(err != 0)
+                            {
+                                 MOTION_LOG(CRT,TYPE_ALL,SHOW_ERRNO,"%s: failure pthread_mutex_lock");
+                            } 
+                            else 
+                            {
+                                int found = 0;
+                                for(i=0;i != NEW_STREAMS_LENGTH; ++i ){
+                                    //Find an unused slot
+                                    if(thread_cnt->new_streams[i] == -1) {
+                                        thread_cnt->new_streams[i] = client_socket;
+                                        found = 1;
+                                    }
+                                }
+                                err = pthread_mutex_unlock(&(thread_cnt->new_streams_mutex));
+                                if(err != 0)
+                                {
+                                    MOTION_LOG(CRT,TYPE_ALL,SHOW_ERRNO,"%s: failure pthread_mutex_unlock");
+                                }
+                                
+                                if (found == 0 )
+                                { 
+                                    //TODO respond to client with too busy
+                                    
+                                    return 1;
+                                } else {
+                                    MOTION_LOG(INF,TYPE_STREAM,NO_ERRNO,"%s: stream started for thread %d",thread);
+                                }
+                                
+                                return 2;
+                                
+                            }
+                        }
+                    }
+                    else if (!strcmp(command, "action")) { /* action */
                         pointer = pointer + 6;
                         length_uri = length_uri - 6;
                         /* call action() */
@@ -2203,6 +2262,7 @@ static unsigned int handle_get(int client_socket, const char *url, void *userdat
  * Returns
  *      0 to quit or restart
  *      1 on success
+ *      2 on socket takeover - handed off to stream
  */
 static unsigned int read_client(int client_socket, void *userdata, char *auth)
 {
@@ -2514,11 +2574,20 @@ void httpd_run(struct context **cnt)
             client_sent_quit_message = read_client(client_socket_fd, cnt, authentication);
             MOTION_LOG(NTC, TYPE_STREAM, NO_ERRNO, "%s: motion-httpd - Read from client");
 
-            /* Close Connection */
-            if (client_socket_fd)
-                close(client_socket_fd);
+            switch(client_sent_quit_message){
+                case 0:
+                case 1:
+                    /* Close Connection */
+                    if (client_socket_fd)
+                    {
+                        close(client_socket_fd);
+                    }
+                    break;
+                case 2:
+                    /* Do nothing, socket was taken over by stream */
+                    break;
+            }
         }
-
     }
 
     if (authentication != NULL)
