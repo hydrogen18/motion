@@ -946,6 +946,7 @@ static struct stream_buffer *stream_tmpbuffer(int size)
  */
 static void stream_add_client(struct stream *list, int sc)
 {
+    MOTION_LOG(DBG,TYPE_STREAM,NO_ERRNO,"%s: adding new client to stream");
     struct stream *new = mymalloc(sizeof(struct stream));
     static const char header[] = "HTTP/1.0 200 OK\r\n"
                                  "Server: Motion/"VERSION"\r\n"
@@ -959,7 +960,7 @@ static void stream_add_client(struct stream *list, int sc)
 
     memset(new, 0, sizeof(struct stream));
     new->socket = sc;
-
+    
     if ((new->tmpbuffer = stream_tmpbuffer(sizeof(header))) == NULL) {
         MOTION_LOG(ERR, TYPE_STREAM, SHOW_ERRNO, "%s: Error creating tmpbuffer in stream_add_client");
     } else {
@@ -1138,6 +1139,7 @@ void stream_put(struct context *cnt, unsigned char *image)
     }
     
     if (cnt->stream_count < DEF_MAXSTREAMS) {
+        MOTION_LOG(DBG,TYPE_STREAM,NO_ERRNO,"%s: checking for new streams from webhttpd");
         err = pthread_mutex_lock(&(cnt->new_streams_mutex));
         if(err != 0)
         {
@@ -1149,13 +1151,15 @@ void stream_put(struct context *cnt, unsigned char *image)
             {
                 if(cnt->new_streams[i] != -1 ){
                     sc = cnt->new_streams[i];
+                    MOTION_LOG(DBG,TYPE_STREAM,NO_ERRNO,"%s: picked up new stream from webhttpd");
                     if (cnt->conf.stream_auth_method == 0) {
                         stream_add_client(&cnt->stream, sc);
                         cnt->stream_count++;
                     } else  {
                         do_client_auth(cnt, sc);
                     }
-                }
+                    
+                } 
                 cnt->new_streams[i] = -1;
             }
             err = pthread_mutex_unlock(&(cnt->new_streams_mutex));

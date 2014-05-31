@@ -2075,6 +2075,7 @@ static unsigned int handle_get(int client_socket, const char *url, void *userdat
                                     if(thread_cnt->new_streams[i] == -1) {
                                         thread_cnt->new_streams[i] = client_socket;
                                         found = 1;
+                                        break;
                                     }
                                 }
                                 err = pthread_mutex_unlock(&(thread_cnt->new_streams_mutex));
