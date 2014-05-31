@@ -1152,12 +1152,9 @@ void stream_put(struct context *cnt, unsigned char *image)
                 if(cnt->new_streams[i] != -1 ){
                     sc = cnt->new_streams[i];
                     MOTION_LOG(DBG,TYPE_STREAM,NO_ERRNO,"%s: picked up new stream from webhttpd");
-                    if (cnt->conf.stream_auth_method == 0) {
-                        stream_add_client(&cnt->stream, sc);
-                        cnt->stream_count++;
-                    } else  {
-                        do_client_auth(cnt, sc);
-                    }
+                    
+                    stream_add_client(&cnt->stream, sc);
+                    cnt->stream_count++;
                     
                 } 
                 cnt->new_streams[i] = -1;
