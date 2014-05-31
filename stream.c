@@ -1101,6 +1101,8 @@ void stream_put(struct context *cnt, unsigned char *image)
     fd_set fdread;
     int sl = cnt->stream.socket;
     int sc;
+    int err;
+    int i ;
     /* Tthe following string has an extra 16 chars at end for length. */
     const char jpeghead[] = "--BoundaryString\r\n"
                             "Content-type: image/jpeg\r\n"
@@ -1132,6 +1134,35 @@ void stream_put(struct context *cnt, unsigned char *image)
             cnt->stream_count++;
         } else  {
             do_client_auth(cnt, sc);
+        }
+    }
+    
+    if (cnt->stream_count < DEF_MAXSTREAMS) {
+        err = pthread_mutex_lock(&(cnt->new_streams_mutex));
+        if(err != 0)
+        {
+            MOTION_LOG(CRT,TYPE_ALL,SHOW_ERRNO,"%s: failure pthread_mutex_lock");
+        } 
+        else
+        {
+            for(i=0; i != NEW_STREAMS_LENGTH; ++i )
+            {
+                if(cnt->new_streams[i] != -1 ){
+                    sc = cnt->new_streams[i];
+                    if (cnt->conf.stream_auth_method == 0) {
+                        stream_add_client(&cnt->stream, sc);
+                        cnt->stream_count++;
+                    } else  {
+                        do_client_auth(cnt, sc);
+                    }
+                }
+                cnt->new_streams[i] = -1;
+            }
+            err = pthread_mutex_unlock(&(cnt->new_streams_mutex));
+ 
+            if (err != 0){
+                MOTION_LOG(CRT,TYPE_ALL,SHOW_ERRNO,"%s: failure pthread_mutex_unlock");
+            }
         }
     }
 
