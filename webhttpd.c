@@ -2046,7 +2046,7 @@ static unsigned int handle_get(int client_socket, const char *url, void *userdat
                         /* Handover connection to stream */
                         struct context * thread_cnt = cnt[0];
                         int i = 0;
-                        for (;i < thread && thread_cnt != NULL; ++i ){
+                        for (;i <= thread && thread_cnt != NULL; ++i ){
                             thread_cnt = cnt[i];
                         }
                         
