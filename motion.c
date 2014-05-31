@@ -314,6 +314,9 @@ static void context_destroy(struct context *cnt)
     }
 
     free(cnt);
+    
+    /* Destroy mutex */
+    pthread_mutex_destroy(&(cnt->new_streams_mutex));
 }
 
 /**
